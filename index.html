@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 16px;
@@ -68,25 +68,39 @@
         .map-container {
             margin-bottom: 40px;
             overflow-x: auto;
+            display: flex;
+            justify-content: center;
         }
 
         svg {
             max-width: 100%;
             height: auto;
-            display: block;
-            margin: 0 auto;
         }
 
         .state {
             cursor: pointer;
             transition: all 0.3s ease;
-            stroke: #999;
-            stroke-width: 1;
+            stroke: #333;
+            stroke-width: 0.5;
         }
 
         .state:hover {
-            stroke-width: 2;
-            filter: brightness(1.1);
+            stroke-width: 1.5;
+            filter: brightness(0.95);
+            cursor: pointer;
+        }
+
+        .state-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            white-space: nowrap;
         }
 
         .state.unvisited {
@@ -127,8 +141,21 @@
         .legend-color {
             width: 24px;
             height: 24px;
-            border: 1px solid #999;
+            border: 1px solid #333;
             border-radius: 3px;
+        }
+
+        .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .info-box strong {
+            color: #667eea;
         }
 
         .state-list {
@@ -154,19 +181,6 @@
         .state-card-visits {
             color: #666;
             font-size: 0.9em;
-        }
-
-        .info-box {
-            background: #f0f7ff;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        .info-box strong {
-            color: #667eea;
         }
 
         footer {
@@ -236,10 +250,14 @@
         </div>
     </div>
 
+    <div class="state-tooltip" id="tooltip"></div>
+
     <footer>
-        <p>Built with ❤️ | Data sourced from <code>data.json</code></p>
+        <p>Built with ❤️ | Real US map with interactive heat map</p>
     </footer>
 
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
