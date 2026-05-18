@@ -141,6 +141,81 @@ function createMap() {
                 alert(`${stateName}: ${visits} visit${visits > 1 ? 's' : ''}`);
             });
 
+        // Function to calculate true centroid of a polygon/multipolygon
+        function getCentroid(feature) {
+            let totalArea = 0;
+            let weightedX = 0;
+            let weightedY = 0;
+
+            function processCoordinates(coords, type, sign = 1) {
+                if (type === 'Polygon') {
+                    coords = [coords];
+                }
+                coords.forEach(ring => {
+                    let area = 0;
+                    let x = 0;
+                    let y = 0;
+                    for (let i = 0; i < ring[0].length - 1; i++) {
+                        const x0 = ring[0][i][0], y0 = ring[0][i][1];
+                        const x1 = ring[0][i + 1][0], y1 = ring[0][i + 1][1];
+                        const cross = x0 * y1 - x1 * y0;
+                        area += cross;
+                        x += (x0 + x1) * cross;
+                        y += (y0 + y1) * cross;
+                    }
+                    return { area, x, y };
+                });
+            }
+
+            if (feature.geometry.type === 'MultiPolygon') {
+                feature.geometry.coordinates.forEach(poly => {
+                    const ring = poly[0];
+                    let area = 0;
+                    let x = 0;
+                    let y = 0;
+                    for (let i = 0; i < ring.length - 1; i++) {
+                        const x0 = ring[i][0], y0 = ring[i][1];
+                        const x1 = ring[i + 1][0], y1 = ring[i + 1][1];
+                        const cross = x0 * y1 - x1 * y0;
+                        area += cross;
+                        x += (x0 + x1) * cross;
+                        y += (y0 + y1) * cross;
+                    }
+                    if (area !== 0) {
+                        totalArea += area;
+                        weightedX += x;
+                        weightedY += y;
+                    }
+                });
+            } else {
+                const ring = feature.geometry.coordinates[0];
+                let area = 0;
+                let x = 0;
+                let y = 0;
+                for (let i = 0; i < ring.length - 1; i++) {
+                    const x0 = ring[i][0], y0 = ring[i][1];
+                    const x1 = ring[i + 1][0], y1 = ring[i + 1][1];
+                    const cross = x0 * y1 - x1 * y0;
+                    area += cross;
+                    x += (x0 + x1) * cross;
+                    y += (y0 + y1) * cross;
+                }
+                totalArea = area;
+                weightedX = x;
+                weightedY = y;
+            }
+
+            if (totalArea === 0) {
+                const bounds = path.bounds(feature);
+                return { x: (bounds[0][0] + bounds[1][0]) / 2, y: (bounds[0][1] + bounds[1][1]) / 2 };
+            }
+
+            return {
+                x: weightedX / (3 * totalArea),
+                y: weightedY / (3 * totalArea)
+            };
+        }
+
         // Calculate state sizes to determine which are small
         const stateAreas = states.map(d => {
             const bounds = path.bounds(d);
@@ -161,12 +236,12 @@ function createMap() {
             .append('text')
             .attr('class', 'state-label')
             .attr('x', d => {
-                const bounds = path.bounds(d);
-                return (bounds[0][0] + bounds[1][0]) / 2;
+                const centroid = getCentroid(d);
+                return centroid.x;
             })
             .attr('y', d => {
-                const bounds = path.bounds(d);
-                return (bounds[0][1] + bounds[1][1]) / 2;
+                const centroid = getCentroid(d);
+                return centroid.y;
             })
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
@@ -174,6 +249,7 @@ function createMap() {
             .attr('font-weight', 'bold')
             .attr('fill', '#333')
             .attr('pointer-events', 'none')
+            .attr('z-index', 100)
             .text(d => {
                 const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
                 return stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
@@ -186,51 +262,79 @@ function createMap() {
             return area < smallStateThreshold;
         });
 
+        // Define fixed positions for known small states to avoid overlaps
+        const smallStatePositions = {
+            'NH': { offsetX: 45, offsetY: -25, lineAngle: -45 },
+            'VT': { offsetX: -40, offsetY: -25, lineAngle: 225 },
+            'ME': { offsetX: 50, offsetY: 25, lineAngle: 45 },
+            'RI': { offsetX: 45, offsetY: 15, lineAngle: 30 },
+            'CT': { offsetX: 40, offsetY: -15, lineAngle: -30 },
+            'MA': { offsetX: 35, offsetY: 0, lineAngle: 0 },
+            'DE': { offsetX: 30, offsetY: 20, lineAngle: 45 },
+            'MD': { offsetX: 30, offsetY: -20, lineAngle: -45 },
+            'NJ': { offsetX: 35, offsetY: 10, lineAngle: 15 },
+            'DC': { offsetX: -35, offsetY: 0, lineAngle: 180 }
+        };
+
         // Create callout labels for small states
         smallStates.forEach(d => {
             const bounds = path.bounds(d);
             const centerX = (bounds[0][0] + bounds[1][0]) / 2;
             const centerY = (bounds[0][1] + bounds[1][1]) / 2;
-            const stateWidth = bounds[1][0] - bounds[0][0];
-            const stateHeight = bounds[1][1] - bounds[0][1];
+            const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
+            const abbr = stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
+            
+            // Get custom position if available
+            const customPos = smallStatePositions[abbr];
+            let labelX, labelY, lineEndX, lineEndY;
 
-            // Position label outside the state
-            let labelX = bounds[1][0] + 35; // Default: right
-            let labelY = centerY;
-            let lineEndX = bounds[1][0];
-            let lineEndY = centerY;
+            if (customPos) {
+                // Use predefined offset
+                labelX = centerX + customPos.offsetX;
+                labelY = centerY + customPos.offsetY;
+                
+                // Calculate line endpoint
+                const angle = (customPos.lineAngle * Math.PI) / 180;
+                const lineLength = 15;
+                lineEndX = centerX + Math.cos(angle) * lineLength;
+                lineEndY = centerY + Math.sin(angle) * lineLength;
+            } else {
+                // Smart positioning for other small states
+                labelX = bounds[1][0] + 35;
+                labelY = centerY;
+                lineEndX = bounds[1][0];
+                lineEndY = centerY;
 
-            // If too far right, position above or below
-            if (labelX > width - 50) {
-                labelX = centerX;
-                labelY = bounds[0][1] - 15;
-                lineEndX = centerX;
-                lineEndY = bounds[0][1];
+                if (labelX > width - 50) {
+                    labelX = centerX;
+                    labelY = bounds[0][1] - 20;
+                    lineEndX = centerX;
+                    lineEndY = bounds[0][1];
+                }
             }
 
-            // Draw line from state to label
+            // Draw line from state to label (darker, more visible)
             svg.append('line')
                 .attr('x1', centerX)
                 .attr('y1', centerY)
                 .attr('x2', lineEndX)
                 .attr('y2', lineEndY)
-                .attr('stroke', '#999')
-                .attr('stroke-width', 0.5)
-                .attr('pointer-events', 'none');
+                .attr('stroke', '#666')
+                .attr('stroke-width', 1)
+                .attr('pointer-events', 'none')
+                .attr('z-index', 50);
 
             // Draw label background
-            const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
-            const abbr = stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
-            
             svg.append('rect')
-                .attr('x', labelX - 12)
-                .attr('y', labelY - 8)
-                .attr('width', 24)
-                .attr('height', 14)
+                .attr('x', labelX - 13)
+                .attr('y', labelY - 9)
+                .attr('width', 26)
+                .attr('height', 16)
                 .attr('fill', 'white')
-                .attr('stroke', '#999')
-                .attr('stroke-width', 0.5)
-                .attr('pointer-events', 'none');
+                .attr('stroke', '#333')
+                .attr('stroke-width', 1)
+                .attr('pointer-events', 'none')
+                .attr('z-index', 99);
 
             // Draw label text
             svg.append('text')
@@ -238,10 +342,11 @@ function createMap() {
                 .attr('y', labelY)
                 .attr('text-anchor', 'middle')
                 .attr('dominant-baseline', 'middle')
-                .attr('font-size', width < 600 ? '8px' : '10px')
+                .attr('font-size', width < 600 ? '9px' : '11px')
                 .attr('font-weight', 'bold')
                 .attr('fill', '#333')
                 .attr('pointer-events', 'none')
+                .attr('z-index', 100)
                 .text(abbr);
         });
         
