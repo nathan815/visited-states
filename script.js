@@ -141,9 +141,22 @@ function createMap() {
                 alert(`${stateName}: ${visits} visit${visits > 1 ? 's' : ''}`);
             });
 
-        // Add state abbreviation labels
-        svg.selectAll('.state-label')
-            .data(states)
+        // Calculate state sizes to determine which are small
+        const stateAreas = states.map(d => {
+            const bounds = path.bounds(d);
+            const area = (bounds[1][0] - bounds[0][0]) * (bounds[1][1] - bounds[0][1]);
+            return { d, area };
+        });
+        const medianArea = stateAreas.sort((a, b) => a.area - b.area)[Math.floor(stateAreas.length / 2)].area;
+        const smallStateThreshold = medianArea * 0.35;
+        
+        // Add state abbreviation labels (inside states)
+        svg.selectAll('.state-label-inside')
+            .data(states.filter(d => {
+                const bounds = path.bounds(d);
+                const area = (bounds[1][0] - bounds[0][0]) * (bounds[1][1] - bounds[0][1]);
+                return area >= smallStateThreshold;
+            }))
             .enter()
             .append('text')
             .attr('class', 'state-label')
@@ -157,7 +170,7 @@ function createMap() {
             })
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
-            .attr('font-size', '12')
+            .attr('font-size', width < 600 ? '9px' : '11px')
             .attr('font-weight', 'bold')
             .attr('fill', '#333')
             .attr('pointer-events', 'none')
@@ -165,6 +178,72 @@ function createMap() {
                 const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
                 return stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
             });
+
+        // Add callout lines and labels for small states
+        const smallStates = states.filter(d => {
+            const bounds = path.bounds(d);
+            const area = (bounds[1][0] - bounds[0][0]) * (bounds[1][1] - bounds[0][1]);
+            return area < smallStateThreshold;
+        });
+
+        // Create callout labels for small states
+        smallStates.forEach(d => {
+            const bounds = path.bounds(d);
+            const centerX = (bounds[0][0] + bounds[1][0]) / 2;
+            const centerY = (bounds[0][1] + bounds[1][1]) / 2;
+            const stateWidth = bounds[1][0] - bounds[0][0];
+            const stateHeight = bounds[1][1] - bounds[0][1];
+
+            // Position label outside the state
+            let labelX = bounds[1][0] + 35; // Default: right
+            let labelY = centerY;
+            let lineEndX = bounds[1][0];
+            let lineEndY = centerY;
+
+            // If too far right, position above or below
+            if (labelX > width - 50) {
+                labelX = centerX;
+                labelY = bounds[0][1] - 15;
+                lineEndX = centerX;
+                lineEndY = bounds[0][1];
+            }
+
+            // Draw line from state to label
+            svg.append('line')
+                .attr('x1', centerX)
+                .attr('y1', centerY)
+                .attr('x2', lineEndX)
+                .attr('y2', lineEndY)
+                .attr('stroke', '#999')
+                .attr('stroke-width', 0.5)
+                .attr('pointer-events', 'none');
+
+            // Draw label background
+            const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
+            const abbr = stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
+            
+            svg.append('rect')
+                .attr('x', labelX - 12)
+                .attr('y', labelY - 8)
+                .attr('width', 24)
+                .attr('height', 14)
+                .attr('fill', 'white')
+                .attr('stroke', '#999')
+                .attr('stroke-width', 0.5)
+                .attr('pointer-events', 'none');
+
+            // Draw label text
+            svg.append('text')
+                .attr('x', labelX)
+                .attr('y', labelY)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('font-size', width < 600 ? '8px' : '10px')
+                .attr('font-weight', 'bold')
+                .attr('fill', '#333')
+                .attr('pointer-events', 'none')
+                .text(abbr);
+        });
         
         // Draw nation border
         svg.append('path')
