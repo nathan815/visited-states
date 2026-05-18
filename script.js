@@ -78,6 +78,21 @@ function createMap() {
             '51': 'Virginia', '53': 'Washington', '54': 'West Virginia', '55': 'Wisconsin', '56': 'Wyoming',
             '11': 'District of Columbia'
         };
+
+        // State abbreviations
+        const stateAbbreviations = {
+            'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+            'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+            'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+            'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+            'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+            'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+            'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+            'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+            'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+            'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+            'District of Columbia': 'DC'
+        };
         
         // Draw states
         svg.selectAll('.state')
@@ -124,6 +139,31 @@ function createMap() {
                 const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
                 const visits = stateData[stateName.toLowerCase()] || 0;
                 alert(`${stateName}: ${visits} visit${visits > 1 ? 's' : ''}`);
+            });
+
+        // Add state abbreviation labels
+        svg.selectAll('.state-label')
+            .data(states)
+            .enter()
+            .append('text')
+            .attr('class', 'state-label')
+            .attr('x', d => {
+                const bounds = path.bounds(d);
+                return (bounds[0][0] + bounds[1][0]) / 2;
+            })
+            .attr('y', d => {
+                const bounds = path.bounds(d);
+                return (bounds[0][1] + bounds[1][1]) / 2;
+            })
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', '12')
+            .attr('font-weight', 'bold')
+            .attr('fill', '#333')
+            .attr('pointer-events', 'none')
+            .text(d => {
+                const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
+                return stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
             });
         
         // Draw nation border
