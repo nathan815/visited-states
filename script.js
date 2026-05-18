@@ -141,81 +141,6 @@ function createMap() {
                 alert(`${stateName}: ${visits} visit${visits > 1 ? 's' : ''}`);
             });
 
-        // Function to calculate true centroid of a polygon/multipolygon
-        function getCentroid(feature) {
-            let totalArea = 0;
-            let weightedX = 0;
-            let weightedY = 0;
-
-            function processCoordinates(coords, type, sign = 1) {
-                if (type === 'Polygon') {
-                    coords = [coords];
-                }
-                coords.forEach(ring => {
-                    let area = 0;
-                    let x = 0;
-                    let y = 0;
-                    for (let i = 0; i < ring[0].length - 1; i++) {
-                        const x0 = ring[0][i][0], y0 = ring[0][i][1];
-                        const x1 = ring[0][i + 1][0], y1 = ring[0][i + 1][1];
-                        const cross = x0 * y1 - x1 * y0;
-                        area += cross;
-                        x += (x0 + x1) * cross;
-                        y += (y0 + y1) * cross;
-                    }
-                    return { area, x, y };
-                });
-            }
-
-            if (feature.geometry.type === 'MultiPolygon') {
-                feature.geometry.coordinates.forEach(poly => {
-                    const ring = poly[0];
-                    let area = 0;
-                    let x = 0;
-                    let y = 0;
-                    for (let i = 0; i < ring.length - 1; i++) {
-                        const x0 = ring[i][0], y0 = ring[i][1];
-                        const x1 = ring[i + 1][0], y1 = ring[i + 1][1];
-                        const cross = x0 * y1 - x1 * y0;
-                        area += cross;
-                        x += (x0 + x1) * cross;
-                        y += (y0 + y1) * cross;
-                    }
-                    if (area !== 0) {
-                        totalArea += area;
-                        weightedX += x;
-                        weightedY += y;
-                    }
-                });
-            } else {
-                const ring = feature.geometry.coordinates[0];
-                let area = 0;
-                let x = 0;
-                let y = 0;
-                for (let i = 0; i < ring.length - 1; i++) {
-                    const x0 = ring[i][0], y0 = ring[i][1];
-                    const x1 = ring[i + 1][0], y1 = ring[i + 1][1];
-                    const cross = x0 * y1 - x1 * y0;
-                    area += cross;
-                    x += (x0 + x1) * cross;
-                    y += (y0 + y1) * cross;
-                }
-                totalArea = area;
-                weightedX = x;
-                weightedY = y;
-            }
-
-            if (totalArea === 0) {
-                const bounds = path.bounds(feature);
-                return { x: (bounds[0][0] + bounds[1][0]) / 2, y: (bounds[0][1] + bounds[1][1]) / 2 };
-            }
-
-            return {
-                x: weightedX / (3 * totalArea),
-                y: weightedY / (3 * totalArea)
-            };
-        }
-
         // Calculate state sizes to determine which are small
         const stateAreas = states.map(d => {
             const bounds = path.bounds(d);
@@ -236,12 +161,12 @@ function createMap() {
             .append('text')
             .attr('class', 'state-label')
             .attr('x', d => {
-                const centroid = getCentroid(d);
-                return centroid.x;
+                const bounds = path.bounds(d);
+                return (bounds[0][0] + bounds[1][0]) / 2;
             })
             .attr('y', d => {
-                const centroid = getCentroid(d);
-                return centroid.y;
+                const bounds = path.bounds(d);
+                return (bounds[0][1] + bounds[1][1]) / 2;
             })
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
@@ -249,7 +174,6 @@ function createMap() {
             .attr('font-weight', 'bold')
             .attr('fill', '#333')
             .attr('pointer-events', 'none')
-            .attr('z-index', 100)
             .text(d => {
                 const stateName = stateNames[d.id.padStart(2, '0')] || 'Unknown';
                 return stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
